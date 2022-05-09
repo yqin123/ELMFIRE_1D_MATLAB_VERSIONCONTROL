@@ -1,0 +1,48 @@
+function C=LIMIT_GRADIENTS(LIST_TAGGED,PHI,RCELLSIZE)
+C = LIST_TAGGED;
+EPSILON = 1e-30;
+
+for I = 1: length(LIST_TAGGED)
+   IX = C(I).IX;
+         
+   if (C(I).UX >= 0E0)
+
+% PHIEAST
+      PHIEAST  = PHI(IX);
+      DELTAUP  = PHIEAST - PHI(IX-1);
+      DELTALOC = PHI(IX+1) - PHIEAST;
+      if(abs(DELTALOC) > EPSILON)
+          PHIEAST = PHIEAST + HALF_SUPERBEE(DELTAUP / DELTALOC)*DELTALOC;
+      end
+
+% PHIWEST
+      PHIWEST = PHI(IX-1);
+      DELTALOC = -DELTAUP;
+      if (abs(DELTALOC) > EPSILON)
+         DELTAUP = PHI(IX-2) - PHIWEST;
+         PHIWEST = PHIWEST - HALF_SUPERBEE(DELTAUP / DELTALOC)*DELTALOC;
+      end
+
+      else % UX .LT. 0
+
+% PHIEAST
+      PHIEAST  = PHI(IX+1);
+      DELTALOC = PHIEAST - PHI(IX);      
+      if (abs(DELTALOC) > EPSILON)     
+         DELTAUP  = PHI(IX+2) - PHIEAST;
+         PHIEAST = PHIEAST - HALF_SUPERBEE(DELTAUP / DELTALOC)*DELTALOC;
+      end
+
+% PHIWEST
+      PHIWEST = PHI(IX);
+      DELTAUP  = -DELTALOC;
+      DELTALOC = PHI(IX-1) - PHIWEST;
+      if (abs(DELTALOC) > EPSILON) 
+          PHIWEST = PHIWEST + HALF_SUPERBEE(DELTAUP / DELTALOC)*DELTALOC;
+      end
+    end
+
+   C(I).DPHIDX_LIMITED = (PHIEAST  - PHIWEST) * RCELLSIZE;
+
+end
+end

@@ -1,0 +1,39 @@
+function C = SIMU_VAR_INIT()
+
+% DLL struct
+% Identity variables
+LIST_TAGGED.IX              = 1;
+LIST_TAGGED.BURNED          = 0;
+LIST_TAGGED.TIME_OF_ARRIVAL = 0;
+% Level set method variables
+LIST_TAGGED.UX              = 0;
+LIST_TAGGED.NORMVECTORX_DMS = 0;
+LIST_TAGGED.NORMVECTORX     = 0;
+LIST_TAGGED.DPHIDX_LIMITED  = 0;
+% Rothermel model variables
+LIST_TAGGED.IFBFM   = 0;
+LIST_TAGGED.ADJ     = 1;
+LIST_TAGGED.M1      = [0]; %Set dynamic dead to m1
+LIST_TAGGED.M10     = [0];
+LIST_TAGGED.M100    = [0];
+LIST_TAGGED.MLH     = [0];
+LIST_TAGGED.MLW     = [0];
+LIST_TAGGED.WSMF    = 0;
+LIST_TAGGED.TANSLP2 = 0;
+
+LIST_TAGGED.IR      = 0;
+LIST_TAGGED.PHISX           = -9999;
+LIST_TAGGED.PHIW_CROWN      = 0; 
+LIST_TAGGED.PHIW_SURFACE    = 0;
+% Output variables
+LIST_TAGGED.VS0             = 0;
+LIST_TAGGED.VELOCITY_DMS    = 0;
+LIST_TAGGED.LOW             = 0;
+LIST_TAGGED.VBACK           = 0;
+LIST_TAGGED.HPUA_SURFACE    = 0;
+LIST_TAGGED.FLIN_SURFACE    = 0;
+LIST_TAGGED.CRITICAL_FLIN   = 0;
+% Suppression
+LIST_TAGGED.SUPPRESSION_ADJUSTMENT_FACTOR = 1;
+
+C=LIST_TAGGED;
