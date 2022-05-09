@@ -11,7 +11,7 @@ FUEL_TABLE_INIT;
 batchrun     = true;
 printoutputs = false;
 saveoutputs  = false;
-NUM_SIMU     = 10;
+NUM_SIMU     = 1;
 %%
 OUT_EMBER_SOURCE = zeros([NUM_SIMU,1000]);
 OUT_EMBER_TARGET = zeros([NUM_SIMU,1000]);
@@ -26,7 +26,7 @@ for I_SIMU =1:NUM_SIMU
     a_0    = 23;     % Average building plan dimension, m
     d      = 45;     % Average building seperation, m
     f_b    = 0.0;    % Ratio of fire resistance buildings
-    Fuel_1 = [103  1 300];  % [Fuel# LeftBoundary RightBoundary] 
+    Fuel_1 = [102  1 300];  % [Fuel# LeftBoundary RightBoundary] 
     Fuel_2 = [102   0  1];  % [Fuel# LeftBoundary RightBoundary]
     M1     = 0;
     M10    = 0;
@@ -38,7 +38,9 @@ for I_SIMU =1:NUM_SIMU
 
     % Ember setting
     ENABLE_SPOTTING            = true;
-    EMBER_ALL_ACTIVATED        = true;
+    EMBER_RES_TIME             = true; % Enable residence time
+    EMBER_TRAVEL_BY_WIND       = true; % Enable travel time delay
+    
     SPOTTING_DISTRIBUTION_TYPE = 2; % 1-, 2- 3- ,
     NEMBERS_MIN              = 100; % embers/cell/s
     NEMBERS_MAX              = 100; % embers/cell/s
@@ -49,7 +51,7 @@ for I_SIMU =1:NUM_SIMU
     SURFACE_FIRE_SPOTTING_PERCENT = 100;
     
     DIAG_PDF = true;
-    ERR = 100 ;
+    X_MAX = 100 ; % m, X_max control
     
     % Time settings
     SimuTime   = 1000; % Total time, s
@@ -102,10 +104,11 @@ for I_SIMU =1:NUM_SIMU
         saveoutputs                             ,...    
         printoutputs                            ,...
         DIAG_PDF                                ,...
-        ERR                                     ,... 
+        X_MAX                                   ,... 
         I_SIMU                                  ,...
         FORCE_DT                                ,...
-        EMBER_ALL_ACTIVATED);
+        EMBER_RES_TIME                          ,...
+        EMBER_TRAVEL_BY_WIND);
 %%
     if(~mod(I_SIMU,10))
         fprintf("Case: %d/%d. %.1f %% finished \n",I_SIMU,NUM_SIMU, I_SIMU/NUM_SIMU*100);

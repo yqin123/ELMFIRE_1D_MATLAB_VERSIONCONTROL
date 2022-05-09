@@ -32,10 +32,11 @@ function [EMBER_SOURCE,EMBER_FLUX,LIST_TAGGED,PHIP,TIME_TO_IGNITE, EMBER_EMIT_FL
         saveoutputs                             ,...    
         printoutputs                            ,...
         DIAG_PDF                                ,...
-        ERR                                     ,...
+        X_MAX                                   ,...
         I_SIMU                                  ,...
         FORCE_DT                                ,...
-        EMBER_ALL_ACTIVATED)
+        EMBER_RES_TIME                          ,...
+        EMBER_TRAVEL_BY_WIND)
 
 % Solver for 1-D fire propagation test, coupling with Rothermel model, 
 % Hamada model and  various firebrand model
@@ -197,18 +198,7 @@ while(T < SimuTime)
     
     C = LIST_TAGGED;
     LIST_LENGTH = length(LIST_TAGGED);
-        %Shower in the band
-%     SIMU_REGION_IND=[1:(length(PHIP)-4)]+2;
-%     BACK_BOUND_IX = find(PHIP>-0.9);
-%     if(length(BACK_BOUND_IX)<1)
-%         if(T==0)
-%             FIRE_BACK_IX  = SIMU_REGION_IND(1);
-%         else
-%             FIRE_BACK_IX  = SIMU_REGION_IND(end);
-%         end
-%     else
-%         FIRE_BACK_IX  = BACK_BOUND_IX(1);
-%     end
+
     for I = 1:LIST_LENGTH
         IX = C(I).IX;
         
@@ -226,7 +216,7 @@ while(T < SimuTime)
             RES_TIME=FMT.TAU*60;
             BURN_TIME=T-C(I).TIME_ADDED;
             
-            if (ENABLE_SPOTTING && ~EMBER_ALL_ACTIVATED && BURN_TIME<=RES_TIME) 
+            if (ENABLE_SPOTTING && ~EMBER_RES_TIME && BURN_TIME<=RES_TIME) 
 
                 CALL_SPOTTING = false;
                 SPOT_FREQ = min(1,NEMBERS_MIN*DT);
@@ -262,7 +252,7 @@ while(T < SimuTime)
                                NEMBERS_MAX_CURRENT,NX, 0, delX, SimuTime, ...
                                PIGN, PHIP, MIN_SPOTTING_DISTANCE, ...
                                MAX_SPOTTING_DISTANCE, EMBER_FLUX, ...
-                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, DIAG_PDF, ERR);
+                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, DIAG_PDF, X_MAX);
                            
                     if(~exist('ember_result','dir'))
                        mkdir ember_result
@@ -275,12 +265,13 @@ while(T < SimuTime)
             
         end
         
+        % -----------------Spotting during Residence Time-----------------%
         FMT=FUEL_MODEL_TABLE_2D(C(I).IFBFM,30);
         FMT=cell2mat(FMT);
-        RES_TIME=FMT.TAU*60;
+        RES_TIME=FMT.TAU*60; % Residence time defined in FBFM_LABELED.csv is in minutes
         BURN_TIME=T-C(I).TIME_ADDED;
         
-        if (EMBER_ALL_ACTIVATED && ENABLE_SPOTTING) 
+        if (EMBER_RES_TIME && ENABLE_SPOTTING) 
 
             if(PHIP(IX)<0 && BURN_TIME<=RES_TIME)
 
@@ -316,7 +307,7 @@ while(T < SimuTime)
                                NEMBERS_MAX_CURRENT,NX, 0, delX, SimuTime, ...
                                PIGN, PHIP, MIN_SPOTTING_DISTANCE, ...
                                MAX_SPOTTING_DISTANCE, EMBER_FLUX, ...
-                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, DIAG_PDF, ERR);
+                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, DIAG_PDF, X_MAX);
                     if(~exist('ember_result','dir'))
                         mkdir ember_result
                     end
@@ -326,7 +317,7 @@ while(T < SimuTime)
                 end
             end
         end
-        
+        % -----------------End of Spotting during Residence Time-----------------%
     end
     LIST_TAGGED=C;
     
@@ -338,66 +329,64 @@ while(T < SimuTime)
                     EVERTAGGED_IX, BANDTHICKNESS, FuelMap, M1, M10, M100, MLH, MLW, U_wind, WAF);
     end
     
-%     for I = 1:N_SPOT_FIRES
-%         IX = IX_SPOT_FIRE(I);
-%         TIME_DIFF=abs(T-TIME_TO_IGNITE(I));
-%         if (TIME_DIFF<=DT/2)
-%             EMBER_FLUX_HIST(IX)=EMBER_FLUX_HIST(IX)+1;
-%         end
-%     end%     PHIP(SPOT_IGNITION==1)     = -1.0;
-%     PHIP_OLD(SPOT_IGNITION==1) = -1.0;
-%     for I = 1:N_SPOT_FIRES
-%         IX = IX_SPOT_FIRE(I);
-%          
-%         if (IX)
-%             % Ember ignition time correction
-%             if (SURFACE_FIRE(IX) <= 0)
-%                 IXLOC = IX;
-% 
-%                 [LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED, EVERTAGGED_IX] =...
-%                     TAG_BAND(NX, IXLOC, T, LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED,...
-%                         EVERTAGGED_IX, BANDTHICKNESS, FuelMap, M1, M10, M100, MLH, MLW, U_wind, WAF);
-% 
-%                 TIME_OF_ARRIVAL(IX) = T;
-%                 SPOT_IGNITION(IX)   = 1;
-%                 if(PHIP_OLD(IX)>0 )
-%                     PHIP(IX)            = -1;
-%                     PHIP_OLD(IX)        = -1;
-%                 end
-%             end
-%         end
-%     end
-%     
-%     % Clean useless embers
-
-
-%--------------------------ELMFIRE_MAT1D_0.1.7-----------------------------%
-    
-%--------------------------END OF ELMFIRE_MAT1D_0.1.7-----------------------------%
-
-% %--------------------------BEGIN OF ELMFIRE_MAT1D_0.1.8 Flytime Counted---------------------------%
-    PHIP(SPOT_IGNITION==1)     = -1.0;
-    PHIP_OLD(SPOT_IGNITION==1) = -1.0;
-%     TIME_DIFF=abs(T-TIME_TO_IGNITE);
-%     PHIP(TIME_DIFF<=DT/2)     = -1.0;
-%     PHIP_OLD(TIME_DIFF<=DT/2) = -1.0;
-        
-    for IX = 1: length(PHIP)
-        % Ember ignition time correction
-        if (SURFACE_FIRE(IX) <= 0)
-            TIME_DIFF=abs(T-TIME_TO_IGNITE(IX));
-            if (TIME_DIFF<=DT/2 && PHIP_OLD(IX)>0)
-                [LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED, EVERTAGGED_IX] =...
-                    TAG_BAND(NX, IX, T, LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED,...
-                        EVERTAGGED_IX, BANDTHICKNESS, FuelMap, M1, M10, M100, MLH, MLW, U_wind, WAF);
-                TIME_OF_ARRIVAL(IX) = T;
-                SPOT_IGNITION(IX)   = 1;
-                PHIP(IX)            = -1;
-                PHIP_OLD(IX)        = -1;
-            end
+    % Memorize number of embers recieved by each cell
+    for I = 1:N_SPOT_FIRES
+        IX = IX_SPOT_FIRE(I);
+        TIME_DIFF=abs(T-TIME_TO_IGNITE(I));
+        if (TIME_DIFF<=DT/2)
+            EMBER_FLUX_HIST(IX)=EMBER_FLUX_HIST(IX)+1;
         end
     end
-% %--------------------------END OF ELMFIRE_MAT1D_0.1.8------------------------------%    
+
+    if(~EMBER_TRAVEL_BY_WIND)
+%--------------------------ELMFIRE_MAT1D_0.1.7, Non-flying time-----------------------------%
+        PHIP(SPOT_IGNITION==1)     = -1.0;
+        PHIP_OLD(SPOT_IGNITION==1) = -1.0;
+        for I = 1:N_SPOT_FIRES
+            IX = IX_SPOT_FIRE(I);
+
+            if (IX)
+                % Ember ignition time correction
+                if (SURFACE_FIRE(IX) <= 0)
+                    IXLOC = IX;
+
+                    [LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED, EVERTAGGED_IX] =...
+                        TAG_BAND(NX, IXLOC, T, LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED,...
+                            EVERTAGGED_IX, BANDTHICKNESS, FuelMap, M1, M10, M100, MLH, MLW, U_wind, WAF);
+
+                    TIME_OF_ARRIVAL(IX) = T;
+                    SPOT_IGNITION(IX)   = 1;
+                    if(PHIP_OLD(IX)>0 )
+                        PHIP(IX)            = -1;
+                        PHIP_OLD(IX)        = -1;
+                    end
+                end
+            end
+        end
+
+%--------------------------END OF ELMFIRE_MAT1D_0.1.7-----------------------------%
+    else
+%--------------------------BEGIN OF ELMFIRE_MAT1D_0.1.8 Flytime Counted---------------------------%
+        PHIP(SPOT_IGNITION==1)     = -1.0;
+        PHIP_OLD(SPOT_IGNITION==1) = -1.0;
+
+        for IX = 1: length(PHIP)
+            % Ember ignition time correction
+            if (SURFACE_FIRE(IX) <= 0)
+                TIME_DIFF=abs(T-TIME_TO_IGNITE(IX));
+                if (TIME_DIFF<=DT/2 && PHIP_OLD(IX)>0)
+                    [LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED, EVERTAGGED_IX] =...
+                        TAG_BAND(NX, IX, T, LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED,...
+                            EVERTAGGED_IX, BANDTHICKNESS, FuelMap, M1, M10, M100, MLH, MLW, U_wind, WAF);
+                    TIME_OF_ARRIVAL(IX) = T;
+                    SPOT_IGNITION(IX)   = 1;
+                    PHIP(IX)            = -1;
+                    PHIP_OLD(IX)        = -1;
+                end
+            end
+        end
+%--------------------------END OF ELMFIRE_MAT1D_0.1.8------------------------------%   
+    end
 %  
 %     if(mod(ITIMESTEP,UNTAG_CELLS_TIMESTEP_INTERVAL) == 0 && length(LIST_TAGGED) > 100)
 %         UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE,DT)
