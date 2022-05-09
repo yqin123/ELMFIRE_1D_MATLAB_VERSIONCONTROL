@@ -4,7 +4,7 @@
 |Feature|Description|
 |:---|:---|
 |Firebrand showering distance distribution |Truncated Sardoy's model|
-|$\Phi$ noise                              |Added|
+|$\phi$ noise                              |Added|
 |Emitting location:                         |Fire Loc $-0.9<\phi<0$|
 |Emitting dynamics:                          |Resident time|
 |Low GR Correction:                          |True|
