@@ -56,7 +56,7 @@ for IEMBER = 1: NUM_EMBERS_PER_TORCH_ELM
 %             SPOTTING_DISTANCE = exp(MU_DIST - sqrt(2.) * SIGMA_DIST * erfinv(1.-2.*R0));
 %         end 
         Fx=@(x)1/2*(1+erf((log(x)-MU_DIST)/sqrt(2)/SIGMA_DIST));
-        Low = Fx(0.1);High=Fx(X_MAX);
+        Low = Fx(delX/2);High=Fx(X_MAX);
         R0 = R0*(High-Low)+Low;
         SPOTTING_DISTANCE = exp(sqrt(2.) * SIGMA_DIST * erfinv(2.*R0-1.) + MU_DIST);
     end
