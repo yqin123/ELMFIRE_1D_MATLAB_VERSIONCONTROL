@@ -23,6 +23,19 @@ function [N_SPOT_FIRES, IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_FLUX, EMBER_SOURCE]=
    DIAG_PDF                  , ...
    ERR)  
 
+% Definition of X_max changed to statistical definition, PDF(k_max)<1e-3
+% Test inputs: 
+% delX=0.5;ERR = 1e-3;MU_DIST=2.18;SIGMA_DIST=1.23;
+pdf=@(x)1./(x*SIGMA_DIST*sqrt(2*pi)).*exp(-(log(x)-MU_DIST).^2/SIGMA_DIST^2/2);
+k_max = 0;
+PDF_k = 1;
+while(PDF_k>ERR)
+    k_max = k_max+1;
+    PDF_k = integral(@(x)(x>=0).*pdf(x),(k_max-1/2)*delX,(k_max+1/2)*delX)/delX;
+end
+X_MAX = k_max*delX;
+% -------- End of Definition of X_max change
+
 X0 = X0_ELM;
 TSTOP  =  TSTOP_SPOT;              % Stop time 
 UWIND = U_wind*0.447; % m/s
@@ -43,7 +56,7 @@ for IEMBER = 1: NUM_EMBERS_PER_TORCH_ELM
 %             SPOTTING_DISTANCE = exp(MU_DIST - sqrt(2.) * SIGMA_DIST * erfinv(1.-2.*R0));
 %         end 
         Fx=@(x)1/2*(1+erf((log(x)-MU_DIST)/sqrt(2)/SIGMA_DIST));
-        Low = Fx(1);High=Fx(ERR);
+        Low = Fx(0.1);High=Fx(X_MAX);
         R0 = R0*(High-Low)+Low;
         SPOTTING_DISTANCE = exp(sqrt(2.) * SIGMA_DIST * erfinv(2.*R0-1.) + MU_DIST);
     end
