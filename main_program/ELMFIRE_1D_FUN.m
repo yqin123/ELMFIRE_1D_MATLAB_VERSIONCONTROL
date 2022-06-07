@@ -32,7 +32,7 @@ function [EMBER_SOURCE,EMBER_FLUX,LIST_TAGGED,PHIP,TIME_TO_IGNITE, EMBER_EMIT_FL
         saveoutputs                             ,...    
         printoutputs                            ,...
         DIAG_PDF                                ,...
-        X_MAX                                   ,...
+        EPS_MAX                                   ,...
         I_SIMU                                  ,...
         FORCE_DT                                ,...
         EMBER_RES_TIME                          ,...
@@ -132,6 +132,8 @@ EMBER_SOURCE = [];
 % FIRE_FRONT   = [];
 EMBER_EMIT_FLUX = zeros(size(PHIP));
 
+SOURCE = [zeros(size(SimuMap));zeros(size(SimuMap));zeros(size(SimuMap));zeros(size(SimuMap));zeros(size(SimuMap))];
+
 %%
 if(printoutputs)
     fprintf('Iteration start... \n')
@@ -202,7 +204,7 @@ while(T < SimuTime)
     for I = 1:LIST_LENGTH
         IX = C(I).IX;
         
-        if (PHIP(IX) <= 0. && SURFACE_FIRE(IX) == 0 )
+        if (PHIP(IX) <= 0. && SURFACE_FIRE(IX) == 0 ) % This need to be modified, because cells ignited by embers cannot emit embers
             C(I).BURNED           = true;
             C(I).TIME_OF_ARRIVAL  = T;
             SURFACE_FIRE   (IX) = 1;
@@ -214,7 +216,7 @@ while(T < SimuTime)
             FMT=FUEL_MODEL_TABLE_2D(C(I).IFBFM,30);
             FMT=cell2mat(FMT);
             RES_TIME=FMT.TAU*60;
-            BURN_TIME=T-C(I).TIME_ADDED;
+            BURN_TIME=T-TIME_OF_ARRIVAL(IX);
             
             if (ENABLE_SPOTTING && ~EMBER_RES_TIME && BURN_TIME<=RES_TIME) 
 
@@ -228,6 +230,7 @@ while(T < SimuTime)
                 end
 
                 if (CALL_SPOTTING) 
+                    
                     % Ember ignition time correction
                     TRUE_GR = NEMBERS_MIN*DT;
                     if(TRUE_GR>1)
@@ -246,13 +249,13 @@ while(T < SimuTime)
     %                     NEMBERS_MIN_CURRENT=ceil(NEMBERS_MIN*delX); % embers/cell/torch
     %                     NEMBERS_MAX_CURRENT=ceil(NEMBERS_MAX*delX); % embers/cell/torch
 
-                    [N_SPOT_FIRES, IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_FLUX, EMBER_SOURCE]=...
-                        SPOTTING(T, IX,U_wind,C(I).FLIN_SURFACE,N_SPOT_FIRES, ...
+                    [N_SPOT_FIRES, IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_FLUX, EMBER_SOURCE,SOURCE]=...
+                        SPOTTING(T, DT, IX,U_wind,C(I).FLIN_SURFACE,N_SPOT_FIRES, ...
                                SPOTTING_DISTRIBUTION_TYPE, NEMBERS_MIN_CURRENT,...
                                NEMBERS_MAX_CURRENT,NX, 0, delX, SimuTime, ...
                                PIGN, PHIP, MIN_SPOTTING_DISTANCE, ...
                                MAX_SPOTTING_DISTANCE, EMBER_FLUX, ...
-                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, DIAG_PDF, X_MAX);
+                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, DIAG_PDF, EPS_MAX,SOURCE);
                            
                     if(~exist('ember_result','dir'))
                        mkdir ember_result
@@ -269,11 +272,11 @@ while(T < SimuTime)
         FMT=FUEL_MODEL_TABLE_2D(C(I).IFBFM,30);
         FMT=cell2mat(FMT);
         RES_TIME=FMT.TAU*60; % Residence time defined in FBFM_LABELED.csv is in minutes
-        BURN_TIME=T-C(I).TIME_ADDED;
+        BURN_TIME=T-TIME_OF_ARRIVAL(IX);
         
         if (EMBER_RES_TIME && ENABLE_SPOTTING) 
 
-            if(PHIP(IX)<0 && BURN_TIME<=RES_TIME)
+            if(PHIP(IX)<=0 && BURN_TIME<=RES_TIME)
 
                 CALL_SPOTTING = false;
 
@@ -301,13 +304,13 @@ while(T < SimuTime)
                         NEMBERS_MAX_CURRENT=ceil(TRUE_GR); % embers/cell/torch
                     end
     %                     
-                    [N_SPOT_FIRES, IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_FLUX, EMBER_SOURCE]=...
-                        SPOTTING(T, IX,U_wind,C(I).FLIN_SURFACE,N_SPOT_FIRES, ...
+                    [N_SPOT_FIRES, IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_FLUX, EMBER_SOURCE,SOURCE]=...
+                        SPOTTING(T, DT, IX,U_wind,C(I).FLIN_SURFACE,N_SPOT_FIRES, ...
                                SPOTTING_DISTRIBUTION_TYPE, NEMBERS_MIN_CURRENT,...
                                NEMBERS_MAX_CURRENT,NX, 0, delX, SimuTime, ...
                                PIGN, PHIP, MIN_SPOTTING_DISTANCE, ...
                                MAX_SPOTTING_DISTANCE, EMBER_FLUX, ...
-                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, DIAG_PDF, X_MAX);
+                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, DIAG_PDF, EPS_MAX, SOURCE);
                     if(~exist('ember_result','dir'))
                         mkdir ember_result
                     end
@@ -330,13 +333,13 @@ while(T < SimuTime)
     end
     
     % Memorize number of embers recieved by each cell
-    for I = 1:N_SPOT_FIRES
-        IX = IX_SPOT_FIRE(I);
-        TIME_DIFF=abs(T-TIME_TO_IGNITE(I));
-        if (TIME_DIFF<=DT/2)
-            EMBER_FLUX_HIST(IX)=EMBER_FLUX_HIST(IX)+1;
-        end
-    end
+%     for I = 1:N_SPOT_FIRES
+%         IX = IX_SPOT_FIRE(I);
+%         TIME_DIFF=abs(T-TIME_TO_IGNITE(I));
+%         if (TIME_DIFF<=DT/2)
+%             EMBER_FLUX_HIST(IX)=EMBER_FLUX_HIST(IX)+1;
+%         end
+%     end
 
     if(~EMBER_TRAVEL_BY_WIND)
 %--------------------------ELMFIRE_MAT1D_0.1.7, Non-flying time-----------------------------%
@@ -354,7 +357,8 @@ while(T < SimuTime)
                         TAG_BAND(NX, IXLOC, T, LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED,...
                             EVERTAGGED_IX, BANDTHICKNESS, FuelMap, M1, M10, M100, MLH, MLW, U_wind, WAF);
 
-                    TIME_OF_ARRIVAL(IX) = T;
+%                     TIME_OF_ARRIVAL(IX) = T;
+%                     SURFACE_FIRE(IX)    = 1;
                     SPOT_IGNITION(IX)   = 1;
                     if(PHIP_OLD(IX)>0 )
                         PHIP(IX)            = -1;
@@ -373,15 +377,19 @@ while(T < SimuTime)
         for IX = 1: length(PHIP)
             % Ember ignition time correction
             if (SURFACE_FIRE(IX) <= 0)
-                TIME_DIFF=abs(T-TIME_TO_IGNITE(IX));
-                if (TIME_DIFF<=DT/2 && PHIP_OLD(IX)>0)
+                TIME_DIFF=T+DT-TIME_TO_IGNITE(IX);
+                if (TIME_DIFF>=0 && PHIP_OLD(IX)>0)
                     [LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED, EVERTAGGED_IX] =...
                         TAG_BAND(NX, IX, T, LIST_TAGGED, TAGGED, EVERTAGGED, NUM_EVERTAGGED,...
                             EVERTAGGED_IX, BANDTHICKNESS, FuelMap, M1, M10, M100, MLH, MLW, U_wind, WAF);
-                    TIME_OF_ARRIVAL(IX) = T;
+%                     TIME_OF_ARRIVAL(IX) = T;
+%                     SURFACE_FIRE(IX)    = 1;
                     SPOT_IGNITION(IX)   = 1;
                     PHIP(IX)            = -1;
                     PHIP_OLD(IX)        = -1;
+                    dlmwrite(sprintf('TIME_DIFF_DX%.1f_DT%.1f.csv',delX,delT),TIME_DIFF,'-append')
+                    dlmwrite(sprintf('SOURCE_DX%.1f_DT%.1f.csv',delX,delT),SOURCE)
+%                     dlmwrite('DELAY_TIME_DIAG_1.csv',TIME_TO_IGNITE)
                 end
             end
         end
@@ -418,5 +426,4 @@ end
 if(printoutputs)
     fprintf("\n Finished ! \n")
 end
-
 end

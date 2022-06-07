@@ -1,6 +1,7 @@
-function [N_SPOT_FIRES, IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_FLUX, EMBER_SOURCE]=...
+function [N_SPOT_FIRES, IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_FLUX, EMBER_SOURCE,SOURCE]=...
     PARTICLE_DRIVER_ELMFIRE_TYPE2(...
    T_ELMFIRE                 , ...
+   DT_ELMFIRE                , ...
    NX                        , ...
    XLLCORNER                 , ...
    delX                      , ...
@@ -21,11 +22,12 @@ function [N_SPOT_FIRES, IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_FLUX, EMBER_SOURCE]=
    EMBER_SOURCE              , ...
    U_wind                    , ... 
    DIAG_PDF                  , ...
-   ERR)  
+   ERR                       , ...
+   SOURCE)  
 
 % Definition of X_max changed to statistical definition, PDF(k_max)<1e-3
 % Test inputs: 
-% delX=0.5;ERR = 1e-3;MU_DIST=2.18;SIGMA_DIST=1.23;
+% delX=10;ERR = 1e-3;MU_DIST=2.18;SIGMA_DIST=1.23;
 pdf=@(x)1./(x*SIGMA_DIST*sqrt(2*pi)).*exp(-(log(x)-MU_DIST).^2/SIGMA_DIST^2/2);
 k_max = 0;
 PDF_k = 1;
@@ -48,7 +50,6 @@ for IEMBER = 1: NUM_EMBERS_PER_TORCH_ELM
         SPOTTING_DISTANCE = MIN_SPOTTING_DISTANCE + R0 * (MAX_SPOTTING_DISTANCE - MIN_SPOTTING_DISTANCE);
     elseif(SPOTTING_DISTRIBUTION_TYPE == 3) %Trunced normal;
         SPOTTING_DISTANCE = 100;
-
     else
 %         if (R0 >= 0.5)
 %             SPOTTING_DISTANCE = exp(sqrt(2.) * SIGMA_DIST * erfinv(2.*R0-1.) + MU_DIST);
@@ -59,6 +60,7 @@ for IEMBER = 1: NUM_EMBERS_PER_TORCH_ELM
         Low = Fx(delX/2);High=Fx(X_MAX);
         R0 = R0*(High-Low)+Low;
         SPOTTING_DISTANCE = exp(sqrt(2.) * SIGMA_DIST * erfinv(2.*R0-1.) + MU_DIST);
+        SPOTTING_DISTANCE = round(SPOTTING_DISTANCE/delX)*delX;
     end
 
     DIST = 0.;
@@ -87,7 +89,7 @@ for IEMBER = 1: NUM_EMBERS_PER_TORCH_ELM
         end
 
         X = X + UWIND * DT_ember;
-        DIST     = DIST + UWIND * DT_ember;
+        DIST = DIST + UWIND * DT_ember;
 
         IXLAST = IX;
     end
@@ -109,8 +111,8 @@ for IEMBER = 1: NUM_EMBERS_PER_TORCH_ELM
 %         if (IGNPROB > R0 && DIST > 1.5*delX)
         if (IGNPROB > R0)
             GO = true;
-            I1 = max(IX-3,3   );
-            I2 = min(IX+3,NX-2);
+            I1 = max(IX-4,3   );
+            I2 = min(IX+4,NX-2);
 
             for I = I1:I2
                 if (PHIP(I) < 0.) 
@@ -126,8 +128,21 @@ for IEMBER = 1: NUM_EMBERS_PER_TORCH_ELM
                 N_SPOT_FIRES = N_SPOT_FIRES + 1;
                 IX_SPOT_FIRE(N_SPOT_FIRES) = IX;
 %                 TIME_TO_IGNITE(N_SPOT_FIRES) = SPOTTING_DISTANCE/UWIND;
-                if(TIME_TO_IGNITE(IX)>=9999)
+                if(T_ember<TIME_TO_IGNITE(IX))
+                    IGT=ceil(T_ember/DT_ELMFIRE)*DT_ELMFIRE;
                     TIME_TO_IGNITE(IX) = T_ember;
+                    SOURCE(1,IX) = T_ELMFIRE;
+                    SOURCE(2,IX) = T_ember;
+                    SOURCE(3,IX) = IGT;
+                    SOURCE(4,IX) = X0_ELM;
+                    SOURCE(5,IX) = (max(1,(IX-2))-0.5) * delX;
+                    if(~exist('Dist.bin','file'))
+                        FileID=fopen('Dist.bin','w');
+                    else
+                        FileID=fopen('Dist.bin','a');
+                    end
+                    fwrite(FileID,(max(1,(IX-2))-0.5) * delX-X0_ELM);
+                    fclose(FileID);
                 end
                 if(DIAG_PDF)
                     EMBER_SOURCE = [EMBER_SOURCE,X0];
