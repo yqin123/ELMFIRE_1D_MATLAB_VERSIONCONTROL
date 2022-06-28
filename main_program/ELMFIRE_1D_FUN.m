@@ -28,37 +28,17 @@ function [EMBER_SOURCE,EMBER_FLUX,LIST_TAGGED,PHIP,TIME_TO_IGNITE, EMBER_EMIT_FL
         SimuRegion                              ,...
         Ignition                                ,...
         BANDTHICKNESS                           ,...
-        batchrun                                ,...
-        saveoutputs                             ,...    
-        printoutputs                            ,...
-        DIAG_PDF                                ,...
-        EPS_MAX                                   ,...
+        EPS_MAX                                 ,...
         I_SIMU                                  ,...
         FORCE_DT                                ,...
         EMBER_RES_TIME                          ,...
-        EMBER_TRAVEL_BY_WIND)
+        EMBER_TRAVEL_BY_WIND                    ,...
+        RES_DIR)
 
 % Solver for 1-D fire propagation test, coupling with Rothermel model, 
 % Hamada model and  various firebrand model
-if(~batchrun)
-    clear all
-    close all 
-end
 
-if(saveoutputs)
-    filename=dir('POSTPROCESS/result');
-    if(isempty(filename))
-        !mkdir POSTPROCESS/result
-        filename=dir('POSTPROCESS/result');
-    end
-
-    eval(strcat('mkdir',sprintf(' POSTPROCESS/result/simu_%03d',length(filename)-2)));
-    save(sprintf('POSTPROCESS/result/simu_%03d/cond_vars.mat',length(filename)-2));
-end
 %% Model Initializing
-if(printoutputs)
-    fprintf("Model Initializing... \n")
-end
 
 SimuMap = [0,0,SimuRegion(1):delX:SimuRegion(2),0,0];
 NX      = length(SimuMap);
@@ -85,7 +65,7 @@ PHIP([1,2,end-1,end]) = -1;
 PHIP(IX_IGN) = -1; 
 PHIP_OLD = PHIP;
 SURFACE_FIRE   = zeros(size(SimuMap));
-TIME_OF_ARRIVAL= zeros(size(SimuMap));
+TIME_OF_ARRIVAL= zeros(size(SimuMap))+9999;
 
 T = 0;
 
@@ -135,25 +115,27 @@ EMBER_EMIT_FLUX = zeros(size(PHIP));
 SOURCE = [zeros(size(SimuMap));zeros(size(SimuMap));zeros(size(SimuMap));zeros(size(SimuMap));zeros(size(SimuMap))];
 
 %%
-if(printoutputs)
-    fprintf('Iteration start... \n')
-end
-iternum = 1;
+% Generate new folder, containing all outputs, free from covering previous
+% results.
 
-if(~exist('prop_log','dir'))
-    mkdir prop_log
+PROP_LOG_DIR=strcat(RES_DIR,'/prop_log');
+if(~exist(PROP_LOG_DIR,'dir'))
+    mkdir(PROP_LOG_DIR)
 end
-log_csv=sprintf('prop_log/prop_log_%03d.csv',I_SIMU);
 
-if(~exist('ember_flux_log','dir'))
-    mkdir ember_flux_log
-end
-ember_flux_csv=sprintf('ember_flux_log/ember_flux_%03d.csv',I_SIMU);
+log_bin=[PROP_LOG_DIR,sprintf('/prop_log_%03d.bin',I_SIMU)];
 
 % N_SPOT_FIRES = 0;
 while(T < SimuTime)
-    dlmwrite(log_csv,[T, PHIP],'delimiter','\t','-append')
-    dlmwrite(ember_flux_csv,[T, EMBER_FLUX_HIST],'delimiter','\t','-append')
+    
+    if(~exist(log_bin,'file'))
+        FileID=fopen(log_bin,'w');
+    else
+        FileID=fopen(log_bin,'a');
+    end
+    VAR_TO_WRITE=double([T,PHIP]);
+    fwrite(FileID,VAR_TO_WRITE,'double');
+    fclose(FileID);
     
     T = T + DT;
     if (NUM_IGNITIONS > 0) 
@@ -255,14 +237,9 @@ while(T < SimuTime)
                                NEMBERS_MAX_CURRENT,NX, 0, delX, SimuTime, ...
                                PIGN, PHIP, MIN_SPOTTING_DISTANCE, ...
                                MAX_SPOTTING_DISTANCE, EMBER_FLUX, ...
-                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, DIAG_PDF, EPS_MAX,SOURCE);
-                           
-                    if(~exist('ember_result','dir'))
-                       mkdir ember_result
-                    end
+                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, EPS_MAX,SOURCE, RES_DIR);
+               
                     EMBER_EMIT_FLUX(IX)=EMBER_EMIT_FLUX(IX)+NEMBERS_MIN_CURRENT;
-                    ember_result_csv=sprintf('ember_result/ember_result_%03d.csv',I_SIMU);
-                    dlmwrite(ember_result_csv,[T,IX,IX_SPOT_FIRE],'delimiter','\t','-append');
                 end
             end
             
@@ -276,7 +253,7 @@ while(T < SimuTime)
         
         if (EMBER_RES_TIME && ENABLE_SPOTTING) 
 
-            if(PHIP(IX)<=0 && BURN_TIME<=RES_TIME)
+            if(PHIP(IX)<=0 && BURN_TIME<RES_TIME)
 
                 CALL_SPOTTING = false;
 
@@ -310,13 +287,9 @@ while(T < SimuTime)
                                NEMBERS_MAX_CURRENT,NX, 0, delX, SimuTime, ...
                                PIGN, PHIP, MIN_SPOTTING_DISTANCE, ...
                                MAX_SPOTTING_DISTANCE, EMBER_FLUX, ...
-                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, DIAG_PDF, EPS_MAX, SOURCE);
-                    if(~exist('ember_result','dir'))
-                        mkdir ember_result
-                    end
+                               IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_SOURCE, EPS_MAX, SOURCE, RES_DIR);
+                    
                     EMBER_EMIT_FLUX(IX)=EMBER_EMIT_FLUX(IX)+NEMBERS_MIN_CURRENT;
-                    ember_result_csv=sprintf('ember_result/ember_result_%03d.csv',I_SIMU);
-                    dlmwrite(ember_result_csv,[T,IX,IX_SPOT_FIRE],'delimiter','\t','-append');
                 end
             end
         end
@@ -387,8 +360,16 @@ while(T < SimuTime)
                     SPOT_IGNITION(IX)   = 1;
                     PHIP(IX)            = -1;
                     PHIP_OLD(IX)        = -1;
-                    dlmwrite(sprintf('TIME_DIFF_DX%.1f_DT%.1f.csv',delX,delT),TIME_DIFF,'-append')
-                    dlmwrite(sprintf('SOURCE_DX%.1f_DT%.1f.csv',delX,delT),SOURCE)
+%                     dlmwrite(sprintf('TIME_DIFF_DX%.1f_DT%.1f.csv',delX,delT),TIME_DIFF,'-append')
+                
+                    
+%                     if(~exist(sprintf('SOURCE_DX%.1f_DT%.1f.bin',delX,delT),'file'))
+%                         FileID=fopen(sprintf('SOURCE_DX%.1f_DT%.1f.bin',delX,delT),'w');
+%                     else
+%                         FileID=fopen(sprintf('SOURCE_DX%.1f_DT%.1f.bin',delX,delT),'a');
+%                     end
+%                     fwrite(FileID,SOURCE);
+%                     fclose(FileID);
 %                     dlmwrite('DELAY_TIME_DIAG_1.csv',TIME_TO_IGNITE)
                 end
             end
@@ -400,12 +381,16 @@ while(T < SimuTime)
 %         UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE,DT)
 %     end
 
-    if(printoutputs)
-        if(~mod(iternum,10))
-            fprintf("SimuTime: %.1f/%.0f. %.1f %% finished \n", T, SimuTime, T/SimuTime*100);
-        end
+    % Diagnose the transposrt distance of all effective embers, which
+    % ignite new fire spots.
+    if(~exist([RES_DIR,'/SOURCE.bin'],'file'))
+        FileID=fopen([RES_DIR,'/SOURCE.bin'],'w');
+    else
+        FileID=fopen([RES_DIR,'/SOURCE.bin'],'a');
     end
-    iternum = iternum + 1;
+    fwrite(FileID,SOURCE);
+    fclose(FileID);
+
     if(max(PHIP)<0)
         break
     end
@@ -416,14 +401,4 @@ while(T < SimuTime)
 %--------------------phi noise perturbation----------------------%
 end
 
-if(saveoutputs)
-    fprintf('Write results to file... \n');
-
-    save(sprintf('POSTPROCESS/result/simu_%03d/resu_vars.mat',length(filename)-2),...
-        'EMBER_FLUX', 'TIME_OF_ARRIVAL','LIST_TAGGED', 'PHIP', 'SURFACE_FIRE', ....
-        'EMBER_SOURCE','EMBER_TARGET', 'FIRE_FRONT');
-end
-if(printoutputs)
-    fprintf("\n Finished ! \n")
-end
 end

@@ -20,10 +20,10 @@ function [N_SPOT_FIRES, IX_SPOT_FIRE, TIME_TO_IGNITE, EMBER_FLUX, EMBER_SOURCE,S
    IX_SPOT_FIRE              , ...
    TIME_TO_IGNITE            , ...
    EMBER_SOURCE              , ...
-   U_wind                    , ... 
-   DIAG_PDF                  , ...
+   U_wind                    , ...
    ERR                       , ...
-   SOURCE)  
+   SOURCE                    , ...
+   RES_DIR)  
 
 % Definition of X_max changed to statistical definition, PDF(k_max)<1e-3
 % Test inputs: 
@@ -62,6 +62,15 @@ for IEMBER = 1: NUM_EMBERS_PER_TORCH_ELM
         SPOTTING_DISTANCE = exp(sqrt(2.) * SIGMA_DIST * erfinv(2.*R0-1.) + MU_DIST);
         SPOTTING_DISTANCE = round(SPOTTING_DISTANCE/delX)*delX;
     end
+    
+    % Diagnose the transport distance of all generated embers
+    if(~exist([RES_DIR,'/Dist_all.bin'],'file'))
+        FileID_All=fopen([RES_DIR,'/Dist_all.bin'],'w');
+    else
+        FileID_All=fopen([RES_DIR,'/Dist_all.bin'],'a');
+    end
+    fwrite(FileID_All,SPOTTING_DISTANCE);
+    fclose(FileID_All);
 
     DIST = 0.;
 
@@ -111,8 +120,8 @@ for IEMBER = 1: NUM_EMBERS_PER_TORCH_ELM
 %         if (IGNPROB > R0 && DIST > 1.5*delX)
         if (IGNPROB > R0)
             GO = true;
-            I1 = max(IX-4,3   );
-            I2 = min(IX+4,NX-2);
+            I1 = max(IX,3   );
+            I2 = min(IX,NX-2);
 
             for I = I1:I2
                 if (PHIP(I) < 0.) 
@@ -131,21 +140,15 @@ for IEMBER = 1: NUM_EMBERS_PER_TORCH_ELM
                 if(T_ember<TIME_TO_IGNITE(IX))
                     IGT=ceil(T_ember/DT_ELMFIRE)*DT_ELMFIRE;
                     TIME_TO_IGNITE(IX) = T_ember;
+                    
+                    % Diagnose the transposrt distance of all effective
+                    % embers, which ignite new fire spots
                     SOURCE(1,IX) = T_ELMFIRE;
                     SOURCE(2,IX) = T_ember;
                     SOURCE(3,IX) = IGT;
                     SOURCE(4,IX) = X0_ELM;
                     SOURCE(5,IX) = (max(1,(IX-2))-0.5) * delX;
-                    if(~exist('Dist.bin','file'))
-                        FileID=fopen('Dist.bin','w');
-                    else
-                        FileID=fopen('Dist.bin','a');
-                    end
-                    fwrite(FileID,(max(1,(IX-2))-0.5) * delX-X0_ELM);
-                    fclose(FileID);
-                end
-                if(DIAG_PDF)
-                    EMBER_SOURCE = [EMBER_SOURCE,X0];
+                   
                 end
             end
         end
